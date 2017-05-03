@@ -117,6 +117,7 @@ class Fermenter(db.Model):
     name = db.Column(db.String(80))
     brewname = db.Column(db.String(80))
     sensorid = db.Column(db.Integer())
+    chambersensorid = db.Column(db.Integer())
     hydrometerid = db.Column(db.Integer())
     heaterid = db.Column(db.Integer())
     heateroffset_min = db.Column(db.Float())

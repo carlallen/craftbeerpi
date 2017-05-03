@@ -100,6 +100,7 @@
   "TIMER": "Timer",
   "THANK_YOU": "Thank you for using CraftBeerPi",
   "THERMOMETER": "Thermometer",
+  "CHAMBER_THERMOMETER": "Chamber Thermometer",
   "THERMOMETER_TYPE": "Thermometer Type",
   "THERMOMETER_TYPE_SUBHEADLINE": "How would you like to connect your temperature sensors",
   "TIMER_IN_MIN": "Timer in minutes",
