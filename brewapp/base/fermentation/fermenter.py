@@ -4,11 +4,12 @@ import flask_restless
 import time
 from flask_sqlalchemy import SQLAlchemy
 from flask_restless.helpers import to_dict
-from model import *
+from brewapp.base.model import *
 from brewapp import app, socketio, manager
 import datetime
 from brewapp.base.util import *
 from brewapp.base.actor import *
+from fermentation_control import FermentationControl
 
 
 app.cbp['CURRENT_TASK'] = {}
@@ -180,6 +181,7 @@ def hystresis(id):
 def fermenter_automatic(id):
     if not app.brewapp_automatic_state.get("F" + id, False):
         app.brewapp_automatic_state["F" + id] = True
+        FermentationControl(id).run()
         t = socketio.start_background_task(hystresis, id)
     else:
         app.brewapp_automatic_state["F" + id] = False
