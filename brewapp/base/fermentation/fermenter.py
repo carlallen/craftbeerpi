@@ -14,6 +14,7 @@ from fermentation_control import FermentationControl
 
 app.cbp['CURRENT_TASK'] = {}
 app.cbp['FERMENTERS'] = {}
+app.cbp['PID_FERMENTATION_CONTROL'] = {}
 
 
 @brewinit()
@@ -180,16 +181,36 @@ def hystresis(id):
 @app.route('/api/fermenter/<id>/automatic', methods=['POST'])
 def fermenter_automatic(id):
     if not app.brewapp_automatic_state.get("F" + id, False):
+        fermenter = app.cbp['FERMENTERS'][int(id)]
         app.brewapp_automatic_state["F" + id] = True
-        FermentationControl(id).run()
-        t = socketio.start_background_task(hystresis, id)
+        if type(fermenter['sensorid']) is int and type(fermenter['chambersensorid']) is int and fermenter['sensorid'] != fermenter['chambersensorid']:
+            app.cbp['PID_FERMENTATION_CONTROL']["F" + id] = FermentationControl(id)
+        else:
+            t = socketio.start_background_task(hystresis, id)
     else:
         app.brewapp_automatic_state["F" + id] = False
+        app.cbp['PID_FERMENTATION_CONTROL'].pop("F" + id)
 
     socketio.emit('fermenter_state_update', app.brewapp_automatic_state, namespace='/brew')
     return ('', 204)
 
+@brewjob(key='fermentation_update_slope', interval=30)
+def update_slope():
+    for key, fc in app.cbp['PID_FERMENTATION_CONTROL'].iteritems():
+        fc.update_slope()
 
+@brewjob(key='fermentation_detect_peaks', interval=10)
+def detect_peaks():
+    for key, fc in app.cbp['PID_FERMENTATION_CONTROL'].iteritems():
+        fc.detect_peaks()
+        fc.update_settings()
+
+@brewjob(key='fermentation_update_state', interval=1)
+def update_state():
+    for key, fc in app.cbp['PID_FERMENTATION_CONTROL'].iteritems():
+        fc.update_state()
+        fc.update_outputs()
+        fc.update_filtered_temperatures()
 
 @brewjob(key="fermenter", interval=60)
 def fermenterjob():
