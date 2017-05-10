@@ -65,8 +65,11 @@ class FermentationControl(object):
 
   def set_chamber_target_temp(self, temp):
     self.chamber_target_temp = temp
-    app.cbp['FERMENTERS'][int(self.fermenterid)]['chamber_target_temp'] = temp
-    socketio.emit('fermenter_update', app.cbp['FERMENTERS'][int(self.fermenterid)], namespace='/brew')
+    f = Fermenter.query.get(int(self.fermenterid))
+    d = to_dict(f, deep={'steps': []})
+    d["chamber_target_temp"] = temp
+    app.cbp['FERMENTERS'][self.fermenterid] = d
+    socketio.emit('fermenter_update', d, namespace='/brew')
 
   def update_settings(self):
     beer_temp_diff = self.fermenter()["target_temp"]-self.beer_temp_filt[3];
@@ -81,7 +84,7 @@ class FermentationControl(object):
     else: #linearly go to heat parameters in 3 hours
       self.Kp = constrain(self.Kp+(KpHeat-KpCool)/(360*3), KpCool, KpHeat)
       self.Kd = constrain(self.Kd+(KdHeat-KdCool)/(360*3), KdHeat, KdCool)
-    self.set_chamber_target_temp(constrain(self.fermenter()["target_temp"] + self.Kp* beer_temp_diff + Ki* self.difference_integral + self.Kd*self.beer_slope, 0, 300))
+    self.set_chamber_target_temp(constrain(self.fermenter()["target_temp"] + self.Kp* beer_temp_diff + Ki* self.difference_integral + self.Kd*self.beer_slope, min_temp(), max_temp()))
 
   def update_state(self):
     if self.state == "IDLE":
@@ -238,3 +241,15 @@ class FermentationControl(object):
 
 def constrain(n, minn, maxn):
   return max(min(maxn, n), minn)
+
+def min_temp():
+  if app.brewapp_config.get("UNIT", "C") == "F":
+    return 38.0
+  else:
+    return 3.5
+
+def max_temp():
+  if app.brewapp_config.get("UNIT", "C") == "F":
+    return 300.0
+  else:
+    return 150.0

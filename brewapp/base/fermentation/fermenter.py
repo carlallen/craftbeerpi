@@ -22,7 +22,7 @@ def load():
     for s in Fermenter.query.all():
         app.cbp['FERMENTERS'][s.id] = to_dict(s)
     for s in FermenterStep.query.filter_by(state='A').all():
-        app.cbp['CURRENT_TASK'][s.fermenter_id] = to_dict(s)
+        app.cbp['CURRENT_TASK'][s.fermenter_id] = to_dict(s, include_methods=["chamber_target_temp"])
         if s.state == 'A' and s.timer_start is not None:
             app.cbp['CURRENT_TASK'][s.fermenter_id]["endunix"] = int((s.timer_start - datetime.datetime(1970, 1, 1)).total_seconds())
 
@@ -44,14 +44,10 @@ def post_patch(result, **kw):
 
 def reload_fermenter(id):
     f = Fermenter.query.get(id)
-    d = to_dict(f, deep={'steps': []})
-    app.cbp['FERMENTERS'][f.id] = d
+    d = to_dict(f, deep={'steps': []}, include_methods=["chamber_target_temp"])
     socketio.emit('fermenter_update', d, namespace='/brew')
 
-
-
-
-manager.create_api(Fermenter, methods=['GET', 'POST', 'PUT', 'DELETE'],  results_per_page=None, postprocessors={ 'PUT_SINGLE': [post_patch], 'POST': [post_post]})
+manager.create_api(Fermenter, methods=['GET', 'POST', 'PUT', 'DELETE'],  results_per_page=None, postprocessors={ 'PUT_SINGLE': [post_patch], 'POST': [post_post]}, include_methods=["chamber_target_temp"])
 manager.create_api(FermenterStep, methods=['GET', 'POST', 'PUT', 'DELETE'], results_per_page=None, postprocessors={'PUT_SINGLE': [post_patch]})
 
 @app.route('/api/fermenter/step/order', methods=['POST'])
