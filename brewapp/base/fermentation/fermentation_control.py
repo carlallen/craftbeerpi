@@ -79,11 +79,11 @@ class FermentationControl(object):
     else:
       self.difference_integral = self.difference_integral * 0.9
     if beer_temp_diff < 0: #linearly go to cool parameters in 3 hours
-      self.Kp = constrain(self.Kp+(KpCool-KpHeat)/(360*3), KpCool, KpHeat)
-      self.Kd = constrain(self.Kd+(KdCool-KdHeat)/(360*3), KdHeat, KdCool)
+      self.Kp = constrain(self.Kp+(KpCool-KpHeat)/(1080.0), KpCool, KpHeat)
+      self.Kd = constrain(self.Kd+(KdCool-KdHeat)/(1080.0), KdHeat, KdCool)
     else: #linearly go to heat parameters in 3 hours
-      self.Kp = constrain(self.Kp+(KpHeat-KpCool)/(360*3), KpCool, KpHeat)
-      self.Kd = constrain(self.Kd+(KdHeat-KdCool)/(360*3), KdHeat, KdCool)
+      self.Kp = constrain(self.Kp+(KpHeat-KpCool)/(1080.0), KpCool, KpHeat)
+      self.Kd = constrain(self.Kd+(KdHeat-KdCool)/(1080.0), KdHeat, KdCool)
     self.set_chamber_target_temp(round(constrain(self.fermenter()["target_temp"] + self.Kp* beer_temp_diff + Ki* self.difference_integral + self.Kd*self.beer_slope, min_temp(), max_temp()), 2))
 
   def update_state(self):
