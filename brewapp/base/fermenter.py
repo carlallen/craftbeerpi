@@ -243,7 +243,7 @@ def fermenterjob():
     for id in app.cbp['FERMENTERS']:
         fermenter = app.cbp['FERMENTERS'][id]
         temp = app.brewapp_thermometer_last[fermenter["sensorid"]]
-        if fermenter["chambersensorid"] is int:
+        if fermenter["chambersensorid"] in app.brewapp_thermometer_last:
             chamber_temp = app.brewapp_thermometer_last[fermenter["chambersensorid"]]
         else:
             chamber_temp = None

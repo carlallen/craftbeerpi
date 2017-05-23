@@ -135,7 +135,7 @@ class Fermenter(db.Model):
         return self.name
 
     def chamber_target_temp(self):
-        if app.cbp['FERMENTER_CHAMBER_TARGETS'].has_key(self.id):
+        if self.id in app.cbp['FERMENTER_CHAMBER_TARGETS']:
             return app.cbp['FERMENTER_CHAMBER_TARGETS'][self.id]
         else:
             return self.target_temp
