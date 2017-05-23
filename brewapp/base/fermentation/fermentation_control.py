@@ -23,14 +23,14 @@ HEATING_TARGET = ((HEATING_TARGET_UPPER+HEATING_TARGET_LOWER)/2)
 class FermentationControl(object):
   def __init__(self, fermenterid):
     self.fermenterid = int(fermenterid)
-    beer_temp = app.brewapp_thermometer_last[self.fermenter()["sensorid"]]
-    chamber_temp = app.brewapp_thermometer_last[self.fermenter()["chambersensorid"]]
+    beer_temp = self.beer_temp()
+    chamber_temp = self.chamber_temp()
     # State Variables
     self.state = "IDLE"
     self.do_neg_peak_detect = False;
     self.do_pos_peak_detect = False;
     # Calculated Temperature Setting
-    self.set_chamber_target_temp(self.fermenter()["target_temp"])
+    self.set_chamber_target_temp(self.target_temp())
     # Filtered Temperature Data
     self.chamber_temp = [chamber_temp] * 4
     self.chamber_temp_filt = [chamber_temp] * 4
@@ -53,7 +53,7 @@ class FermentationControl(object):
     self.last_heat_time = datetime.datetime.utcnow() - datetime.timedelta(minutes=20)
     self.last_idle_time = datetime.datetime.utcnow() - datetime.timedelta(minutes=20)
     # PID Settings
-    if self.fermenter()["target_temp"] < beer_temp:
+    if self.target_temp() < beer_temp:
       self.Kp = KpCool
       self.Kd = KdCool
     else:
@@ -72,7 +72,7 @@ class FermentationControl(object):
     socketio.emit('fermenter_update', d, namespace='/brew')
 
   def update_settings(self):
-    beer_temp_diff = self.fermenter()["target_temp"]-self.beer_temp_filt[3];
+    beer_temp_diff = self.target_temp()-self.beer_temp_filt[3];
     if abs(beer_temp_diff) < 5 and ((self.beer_slope <= 0.7 and self.beer_slope >= 0) or (self.beer_slope >= -1.4 and self.beer_slope <= 0)):  # difference is smaller than .5 degree and slope is almost horizontal
       if abs(beer_temp_diff)> 0.5:
         self.difference_integral = self.difference_integral + beer_temp_diff;
@@ -84,18 +84,18 @@ class FermentationControl(object):
     else: #linearly go to heat parameters in 3 hours
       self.Kp = constrain(self.Kp+(KpHeat-KpCool)/(1080.0), KpCool, KpHeat)
       self.Kd = constrain(self.Kd+(KdHeat-KdCool)/(1080.0), KdHeat, KdCool)
-    self.set_chamber_target_temp(round(constrain(self.fermenter()["target_temp"] + self.Kp* beer_temp_diff + Ki* self.difference_integral + self.Kd*self.beer_slope, min_temp(), max_temp()), 2))
+    self.set_chamber_target_temp(round(constrain(self.target_temp() + self.Kp* beer_temp_diff + Ki* self.difference_integral + self.Kd*self.beer_slope, min_temp(), max_temp()), 2))
 
   def update_state(self):
     if self.state == "IDLE":
       self.last_idle_time = datetime.datetime.utcnow()
       if ((self.time_since_cooling() > datetime.timedelta(minutes=15) or not self.do_neg_peak_detect) and (self.time_since_heating() > datetime.timedelta(minutes=10)) or not self.do_pos_peak_detect): # if cooling is 15 min ago and heating 10
-        if app.brewapp_thermometer_last[self.fermenter()["chambersensorid"]] > self.chamber_target_temp + IDLE_RANGE_HIGH:
-          if self.beer_temp_filt[3] > self.fermenter()["target_temp"] + 0.5: # only start cooling when beer is too warm (0.05 degree idle space)
+        if self.chamber_temp() > self.chamber_target_temp + IDLE_RANGE_HIGH:
+          if self.beer_temp_filt[3] > self.target_temp() + 0.5: # only start cooling when beer is too warm (0.05 degree idle space)
             self.state = "COOLING"
           return True
-        if app.brewapp_thermometer_last[self.fermenter()["chambersensorid"]] < self.chamber_target_temp + IDLE_RANGE_LOW:
-          if self.beer_temp_filt[3] < self.fermenter()["target_temp"] - 0.5: # only start heating when beer is too cold (0.05 degree idle space)
+        if self.chamber_temp() < self.chamber_target_temp + IDLE_RANGE_LOW:
+          if self.beer_temp_filt[3] < self.target_temp() - 0.5: # only start heating when beer is too cold (0.05 degree idle space)
             self.state = "HEATING";
           return True
       if self.time_since_cooling() > datetime.timedelta(minutes=30):
@@ -106,7 +106,7 @@ class FermentationControl(object):
       self.do_neg_peak_detect = True
       self.last_cool_time = datetime.datetime.utcnow()
       estimated_overshoot = self.cool_overshoot_estimator * min(MAX_COOL_TIME_FOR_ESTIMATE, self.time_since_idle().total_seconds())/60;
-      estimated_peak_temp = app.brewapp_thermometer_last[self.fermenter()["chambersensorid"]] - estimated_overshoot;
+      estimated_peak_temp = self.chamber_temp() - estimated_overshoot;
       if estimated_peak_temp <= self.chamber_target_temp + COOLING_TARGET:
         self.chamber_setting_for_neg_peak_estimate = self.chamber_target_temp
         self.state="IDLE"
@@ -115,7 +115,7 @@ class FermentationControl(object):
       self.do_pos_peak_detect = True
       self.last_heat_time = datetime.datetime.utcnow()
       estimated_overshoot = self.heat_overshoot_estimator * min(MAX_HEAT_TIME_FOR_ESTIMATE, self.time_since_idle().total_seconds())/60;
-      estimated_peak_temp = app.brewapp_thermometer_last[self.fermenter()["chambersensorid"]] + estimated_overshoot;
+      estimated_peak_temp = self.chamber_temp() + estimated_overshoot;
       if estimated_peak_temp >= self.chamber_target_temp + HEATING_TARGET:
         self.chamber_setting_for_pos_peak_estimate = self.chamber_target_temp
         self.state="IDLE"
@@ -128,7 +128,7 @@ class FermentationControl(object):
     self.chamber_temp[0] = self.chamber_temp[1]
     self.chamber_temp[1] = self.chamber_temp[2]
     self.chamber_temp[2] = self.chamber_temp[3];
-    self.chamber_temp[3] = app.brewapp_thermometer_last[self.fermenter()["chambersensorid"]]
+    self.chamber_temp[3] = self.chamber_temp()
 
     # Butterworth filter with cutoff frequency 0.01*sample frequency (FS=0.1Hz)
     self.chamber_temp_filt[0] = self.chamber_temp_filt[1]
@@ -142,7 +142,7 @@ class FermentationControl(object):
     self.beer_temp[0] = self.beer_temp[1]
     self.beer_temp[1] = self.beer_temp[2]
     self.beer_temp[2] = self.beer_temp[3];
-    self.beer_temp[3] = app.brewapp_thermometer_last[self.fermenter()["sensorid"]]
+    self.beer_temp[3] = self.beer_temp()
 
     #  Butterworth filter with cutoff frequency 0.01*sample frequency (FS=0.1Hz)
     self.beer_temp_filt[0] = self.beer_temp_filt[1]
@@ -219,8 +219,8 @@ class FermentationControl(object):
     return datetime.datetime.utcnow() - self.last_idle_time
 
   def update_slope(self):
-    self.beer_temp_history[self.beer_temp_history_index]=self.beer_temp_filt[3];
-    self.beer_slope = self.beer_temp_history[self.beer_temp_history_index]-self.beer_temp_history[(self.beer_temp_history_index+1) % 30]
+    self.beer_temp_history[self.beer_temp_history_index] = self.beer_temp_filt[3];
+    self.beer_slope = self.beer_temp_history[self.beer_temp_history_index] - self.beer_temp_history[(self.beer_temp_history_index+1) % 30]
     self.beer_temp_history_index = (self.beer_temp_history_index+1) % 30
 
   def heat(self, on_off):
@@ -238,6 +238,15 @@ class FermentationControl(object):
         switchOn(cooler_id)
       else:
         switchOff(cooler_id)
+
+  def chamber_temp(self):
+    return app.brewapp_thermometer_last[self.fermenter()["chambersensorid"]]
+
+  def beer_temp(self):
+    return app.brewapp_thermometer_last[self.fermenter()["sensorid"]]
+
+  def target_temp(self):
+    return self.fermenter()["target_temp"]
 
 def constrain(n, minn, maxn):
   return max(min(maxn, n), minn)
