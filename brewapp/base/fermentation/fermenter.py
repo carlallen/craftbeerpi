@@ -4,15 +4,17 @@ import flask_restless
 import time
 from flask_sqlalchemy import SQLAlchemy
 from flask_restless.helpers import to_dict
-from model import *
+from brewapp.base.model import *
 from brewapp import app, socketio, manager
 import datetime
 from brewapp.base.util import *
 from brewapp.base.actor import *
+from fermentation_control import FermentationControl
 
 
 app.cbp['CURRENT_TASK'] = {}
 app.cbp['FERMENTERS'] = {}
+app.cbp['PID_FERMENTATION_CONTROL'] = {}
 
 
 @brewinit()
@@ -20,7 +22,7 @@ def load():
     for s in Fermenter.query.all():
         app.cbp['FERMENTERS'][s.id] = to_dict(s)
     for s in FermenterStep.query.filter_by(state='A').all():
-        app.cbp['CURRENT_TASK'][s.fermenter_id] = to_dict(s)
+        app.cbp['CURRENT_TASK'][s.fermenter_id] = to_dict(s, include_methods=["chamber_target_temp"])
         if s.state == 'A' and s.timer_start is not None:
             app.cbp['CURRENT_TASK'][s.fermenter_id]["endunix"] = int((s.timer_start - datetime.datetime(1970, 1, 1)).total_seconds())
 
@@ -42,14 +44,10 @@ def post_patch(result, **kw):
 
 def reload_fermenter(id):
     f = Fermenter.query.get(id)
-    d = to_dict(f, deep={'steps': []})
-    app.cbp['FERMENTERS'][f.id] = d
+    d = to_dict(f, deep={'steps': []}, include_methods=["chamber_target_temp"])
     socketio.emit('fermenter_update', d, namespace='/brew')
 
-
-
-
-manager.create_api(Fermenter, methods=['GET', 'POST', 'PUT', 'DELETE'],  results_per_page=None, postprocessors={ 'PUT_SINGLE': [post_patch], 'POST': [post_post]})
+manager.create_api(Fermenter, methods=['GET', 'POST', 'PUT', 'DELETE'],  results_per_page=None, postprocessors={ 'PUT_SINGLE': [post_patch], 'POST': [post_post]}, include_methods=["chamber_target_temp"])
 manager.create_api(FermenterStep, methods=['GET', 'POST', 'PUT', 'DELETE'], results_per_page=None, postprocessors={'PUT_SINGLE': [post_patch]})
 
 @app.route('/api/fermenter/step/order', methods=['POST'])
@@ -179,15 +177,36 @@ def hystresis(id):
 @app.route('/api/fermenter/<id>/automatic', methods=['POST'])
 def fermenter_automatic(id):
     if not app.brewapp_automatic_state.get("F" + id, False):
+        fermenter = app.cbp['FERMENTERS'][int(id)]
         app.brewapp_automatic_state["F" + id] = True
-        t = socketio.start_background_task(hystresis, id)
+        if type(fermenter['sensorid']) is int and type(fermenter['chambersensorid']) is int and fermenter['sensorid'] != fermenter['chambersensorid']:
+            app.cbp['PID_FERMENTATION_CONTROL']["F" + id] = FermentationControl(id)
+        else:
+            t = socketio.start_background_task(hystresis, id)
     else:
         app.brewapp_automatic_state["F" + id] = False
+        app.cbp['PID_FERMENTATION_CONTROL'].pop("F" + id)
 
     socketio.emit('fermenter_state_update', app.brewapp_automatic_state, namespace='/brew')
     return ('', 204)
 
+@brewjob(key='fermentation_update_slope', interval=30)
+def update_slope():
+    for key, fc in app.cbp['PID_FERMENTATION_CONTROL'].iteritems():
+        fc.update_slope()
 
+@brewjob(key='fermentation_detect_peaks', interval=10)
+def detect_peaks():
+    for key, fc in app.cbp['PID_FERMENTATION_CONTROL'].iteritems():
+        fc.detect_peaks()
+        fc.update_settings()
+
+@brewjob(key='fermentation_update_state', interval=1)
+def update_state():
+    for key, fc in app.cbp['PID_FERMENTATION_CONTROL'].iteritems():
+        fc.update_state()
+        fc.update_outputs()
+        fc.update_filtered_temperatures()
 
 @brewjob(key="fermenter", interval=60)
 def fermenterjob():

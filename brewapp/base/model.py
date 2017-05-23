@@ -1,5 +1,5 @@
 from brewapp import db
-
+from brewapp import app
 
 class Step(db.Model):
 
@@ -117,6 +117,7 @@ class Fermenter(db.Model):
     name = db.Column(db.String(80))
     brewname = db.Column(db.String(80))
     sensorid = db.Column(db.Integer())
+    chambersensorid = db.Column(db.Integer())
     hydrometerid = db.Column(db.Integer())
     heaterid = db.Column(db.Integer())
     heateroffset_min = db.Column(db.Float())
@@ -126,6 +127,10 @@ class Fermenter(db.Model):
     cooleroffset_max = db.Column(db.Float())
     target_temp = db.Column(db.Integer())
     steps = db.relationship('FermenterStep', backref='Fermenter', lazy='joined', cascade="all, delete-orphan", order_by="FermenterStep.order")
+
+    def chamber_target_temp(self):
+        if app.cbp['PID_FERMENTATION_CONTROL'].has_key("F" + str(self.id)):
+            return app.cbp['PID_FERMENTATION_CONTROL']["F" + str(self.id)].chamber_target_temp
 
     def __repr__(self):
         return self.name
