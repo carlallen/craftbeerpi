@@ -151,9 +151,8 @@ def hystresis(id):
             chamber_target_temp = target_temp + pid.calc(temp, target_temp)
             chamber_temp = app.brewapp_thermometer_last[fermenter["chambersensorid"]]
 
-        fermenter["chamber_target_temp"] = chamber_target_temp
         app.cbp['FERMENTER_CHAMBER_TARGETS'][int(id)] = chamber_target_temp
-        socketio.emit('fermenter_update', fermenter, namespace='/brew')
+        reload_fermenter(int(id))
 
         heater_min = fermenter["heateroffset_min"]
         heater_max = fermenter["heateroffset_max"]
@@ -201,15 +200,6 @@ def fermenter_automatic(id):
     return ('', 204)
 
 
-
-@brewjob(key="fermenter", interval=60)
-def fermenterjob():
-    for id in app.brewapp_fermenters:
-        fermenter = app.brewapp_fermenters[id]
-        temp = app.brewapp_thermometer_last[fermenter["sensorid"]]
-        timestamp = int((datetime.utcnow() - datetime(1970, 1, 1)).total_seconds()) * 1000
-        writeTempToFile("F_" + str(fermenter["id"]), timestamp, temp, fermenter["target_temp"])
-
 @brewjob(key="fermenter_control", interval=0.1)
 def step_control():
     for i in app.cbp['CURRENT_TASK']:
@@ -253,5 +243,9 @@ def fermenterjob():
     for id in app.cbp['FERMENTERS']:
         fermenter = app.cbp['FERMENTERS'][id]
         temp = app.brewapp_thermometer_last[fermenter["sensorid"]]
+        if fermenter["chambersensorid"] is int:
+            chamber_temp = app.brewapp_thermometer_last[fermenter["chambersensorid"]]
+        else:
+            chamber_temp = None
         timestamp = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds()) * 1000
-        writeTempToFile("F_" + str(fermenter["id"]), timestamp, temp, fermenter["target_temp"])
+        writeFermenterTemptoFile("F_" + str(fermenter["id"]), timestamp, temp, fermenter["target_temp"], chamber_temp, fermenter["chamber_target_temp"])
