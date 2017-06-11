@@ -1056,7 +1056,7 @@ function ChartController($scope, CBPChart, $state, $stateParams) {
                         {
                             type: 'spline',
                             data: response.data["target_temp"],
-                            name: 'Targe Temperature',
+                            name: 'Target Temperature',
                             marker: {radius: 2},
                         }
                         /*,
@@ -1079,6 +1079,24 @@ function ChartController($scope, CBPChart, $state, $stateParams) {
                             marker: {radius: 2},
                         }*/
                     ]
+                    if (response.data["chamber_temp"].length > 0) {
+                        config.push(
+                        {
+                            type: 'areaspline',
+                            data: response.data["chamber_temp"],
+                            name: 'Chamber Temperature',
+                            marker: {radius: 2},
+
+                        })
+                        config.push(
+                        {
+                            type: 'spline',
+                            data: response.data["chamber_target_temp"],
+                            name: 'Chamber Target Temperature',
+                            marker: {radius: 2},
+                        })
+                    }
+
                 }
 
                 if ($state.current.type == "K") {
@@ -1095,7 +1113,7 @@ function ChartController($scope, CBPChart, $state, $stateParams) {
                         {
                             type: 'spline',
                             data: response.data["target_temp"],
-                            name: 'Targe Temperature',
+                            name: 'Target Temperature',
                             marker: {radius: 2},
                         }]
                 }
@@ -1785,7 +1803,7 @@ function Menu($scope) {
 
 
     $scope.hide = false;
-    
+
     $scope.toggleMenu = function() {
 
         console.log("TOGGLE")

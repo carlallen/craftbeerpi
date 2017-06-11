@@ -1,5 +1,5 @@
 from brewapp import db
-
+from brewapp import app
 
 class Step(db.Model):
 
@@ -117,6 +117,7 @@ class Fermenter(db.Model):
     name = db.Column(db.String(80))
     brewname = db.Column(db.String(80))
     sensorid = db.Column(db.Integer())
+    chambersensorid = db.Column(db.Integer())
     hydrometerid = db.Column(db.Integer())
     heaterid = db.Column(db.Integer())
     heateroffset_min = db.Column(db.Float())
@@ -132,6 +133,12 @@ class Fermenter(db.Model):
 
     def __unicode__(self):
         return self.name
+
+    def chamber_target_temp(self):
+        if self.id in app.cbp['FERMENTER_CHAMBER_TARGETS']:
+            return app.cbp['FERMENTER_CHAMBER_TARGETS'][self.id]
+        else:
+            return self.target_temp
 
 class FermenterStep(db.Model):
     id = db.Column(db.Integer, primary_key=True)

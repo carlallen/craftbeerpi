@@ -110,6 +110,27 @@ def writeTempToFile(file, timestamp, current_temp, target_temp):
     with open(filename, "a") as myfile:
         myfile.write(msg)
 
+def writeFermenterTemptoFile(file, timestamp, current_temp, target_temp, chamber_temp, chamber_target_temp):
+    filename = "log/" + file + ".templog"
+    '''
+
+    if os.path.isfile(filename) == False:
+        with open(filename, "a") as myfile:
+            myfile.write("Date,Current Temperature,Target Temperature\n")
+    '''
+    formatted_time = datetime.datetime.fromtimestamp((timestamp / 1000)).strftime('%Y-%m-%d %H:%M:%S')
+    tt = "0" if target_temp is None else str(target_temp)
+
+    msg = formatted_time + "," + str(current_temp) + "," + tt
+
+    if chamber_temp is not None:
+        msg +=  "," + str(chamber_temp) + "," + str(chamber_target_temp)
+
+    msg += "\n"
+
+    with open(filename, "a") as myfile:
+        myfile.write(msg)
+
 def writeSpindle(file, timestamp, current_temp, wort, battery):
     filename = "log/" + file + ".templog"
 
@@ -145,7 +166,7 @@ def read_hydrometer_log(file):
 
 def read_temp_log(file):
     import csv
-    result = {"temp": [], "target_temp": []}
+    result = {"temp": [], "target_temp": [], "chamber_temp": [], "chamber_target_temp": []}
 
     if os.path.isfile(file) == False:
         return result
@@ -157,6 +178,10 @@ def read_temp_log(file):
             result["temp"].append([time, float(row[1])])
 
             result["target_temp"].append([time, float(row[2])])
+            if len(row) > 3:
+                result['chamber_temp'].append([time, float(row[3])])
+
+                result['chamber_target_temp'].append([time, float(row[4])])
     return result
 
 

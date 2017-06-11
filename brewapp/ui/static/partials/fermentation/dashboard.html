@@ -59,6 +59,18 @@
                              <div style="font-size: 0.5em; margin-top: -5px">Target Temperature</div>
                         </div>
                     </div>
+                    <div class="row" ng-if="n.sensorid && n.chambersensorid && n.chambersensorid != n.sensorid" style="margin-top: 10px">
+                        <div class="col-xs-6">
+                            <span>
+                            {{ n.chambersensorid | get_temp:temps }}°{{ config["UNIT"] }}
+                            <div style="font-size: 0.5em; margin-top: -5px">Chamber Temperature</div>
+                                </span>
+                        </div>
+                        <div class="col-xs-6" ng-if='n.chamber_target_temp'>
+                            {{ n.chamber_target_temp | number:2 }}°{{ config["UNIT"] }}
+                            <div style="font-size: 0.5em; margin-top: -5px">Chamber Target Temperature</div>
+                        </div>
+                    </div>
                     <div class="row" ng-if="n.hydrometerid" style="margin-top: 10px">
                         <div class="col-xs-6">
                                 {{ hydrometer_temps[n.hydrometerid].temp }}°{{ config["UNIT"] }}
