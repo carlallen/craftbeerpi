@@ -132,7 +132,7 @@ def fermenter_state():
     return json.dumps(app.brewapp_automatic_state)
 
 def hystresis(id):
-    pid = PIDArduino(1, 2.0, 0.02, 5, -15.0, 15.0)
+    pid = PIDArduino(1, 2.0, 0.002, 5, -15.0, 15.0)
     while app.brewapp_automatic_state["F" + id]:
 
         fermenter = app.cbp['FERMENTERS'][int(id)]
@@ -168,14 +168,14 @@ def hystresis(id):
             if temp + heater_min < target_temp and chamber_temp + heater_min < chamber_target_temp:
                 switchOn(fermenter["heaterid"])
 
-            if temp + heater_max > target_temp and chamber_temp + heater_max > chamber_target_temp:
+            if temp + heater_max > target_temp:
                 switchOff(fermenter["heaterid"])
 
         if cooler_id is not None:
             if temp > target_temp + cooler_min and chamber_temp > chamber_target_temp + cooler_min:
                 switchOn(fermenter["coolerid"])
 
-            if temp < target_temp + cooler_max and chamber_temp < chamber_target_temp + cooler_max:
+            if temp < target_temp + cooler_max:
                 switchOff(fermenter["coolerid"])
 
         socketio.sleep(1)
